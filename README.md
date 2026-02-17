@@ -1,36 +1,222 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Horizon Quest
 
-## Getting Started
+Internal Monetary Module
 
-First, run the development server:
+---
+
+## 1. Definição
+
+Horizon Quest é um módulo financeiro interno implementado em Next.js que fornece um sistema de moeda virtual para uso exclusivo dentro da aplicação.
+
+A moeda é denominada Horizon Quest (HQ$) e não possui qualquer relação com dinheiro real, meios de pagamento externos, criptoativos ou blockchain.
+
+O sistema implementa:
+
+- Wallet individual por usuário
+- Ledger imutável como fonte de verdade
+- Operações de recompensa e compra interna
+- Estorno via lançamento inverso
+- Autenticação com suporte a MFA (TOTP)
+- Garantias de consistência transacional
+
+---
+
+## 2. Fundamentos Técnicos
+
+Stack:
+
+- Next.js 16 (App Router)
+- TypeScript
+- TailwindCSS 4
+- UI kit próprio
+- PostgreSQL
+- Prisma ORM com adapter-pg
+- Supabase Auth com SSR via @supabase/ssr
+
+---
+
+## 3. Modelo Monetário
+
+Moeda:
+
+- Nome: Horizon Quest
+- Representação visual: HQ$
+- Precisão: 2 casas decimais
+- Unidade interna: centavos inteiros
+
+Regras obrigatórias:
+
+1. Nenhum valor é armazenado em float ou decimal.
+2. Todos os valores monetários são inteiros em centavos.
+3. Ledger é a fonte de verdade.
+4. Wallet.balance_cents é cache derivado.
+5. Lançamentos nunca são editados ou apagados.
+6. Correções são feitas exclusivamente via REVERSAL.
+7. Cada operação financeira possui reference_id único.
+8. Nenhuma operação pode gerar saldo negativo.
+
+---
+
+## 4. Estrutura de Dados
+
+### Wallet
+
+- id
+- userId (unique)
+- balance_cents (integer)
+- status
+- createdAt
+- updatedAt
+
+### LedgerEntry
+
+- id
+- walletId
+- direction (CREDIT | DEBIT)
+- type (REWARD | PURCHASE | REVERSAL | TRANSFER | FEE)
+- amount_cents (integer)
+- reference_id (unique)
+- description
+- metadata (json)
+- createdAt
+
+---
+
+## 5. Operações Implementadas
+
+### Recompensa
+
+- Validação de entrada
+- Conversão para centavos
+- Verificação de idempotência
+- Incremento do saldo
+- Criação de LedgerEntry do tipo CREDIT / REWARD
+
+### Compra Interna
+
+- Validação de entrada
+- Conversão para centavos
+- Verificação de saldo suficiente
+- Decremento condicional atômico
+- Criação de LedgerEntry do tipo DEBIT / PURCHASE
+
+### Estorno
+
+- Localização do lançamento original
+- Validação de propriedade do usuário
+- Proibição de estornar REVERSAL
+- Criação de lançamento inverso do tipo REVERSAL
+- Ajuste de saldo coerente
+- Idempotência garantida via reference_id
+
+---
+
+## 6. Garantias de Consistência
+
+- Transações atômicas via Prisma $transaction
+- updateMany condicional para impedir saldo negativo
+- Índice único em reference_id
+- Separação clara entre Ledger (verdade) e Wallet (cache)
+- Auditoria estruturada em log
+- Autenticação obrigatória para todas as ações financeiras
+
+---
+
+## 7. Autenticação
+
+O sistema utiliza Supabase Auth com SSR baseado em cookies.
+
+Fluxos implementados:
+
+- Signup com verificação de email
+- Login com senha
+- Logout
+- Recuperação de senha
+- Atualização de senha autenticado
+- MFA TOTP via aplicativo autenticador
+
+A criação de Wallet é automática no primeiro login válido do usuário.
+
+---
+
+## 8. Interface
+
+A interface é construída com:
+
+- Componentes próprios
+- Tokens de design via variáveis CSS
+- Suporte a tema claro e escuro
+- Layout mobile-first
+
+A página principal do módulo é:
+
+/wallet
+
+Ela exibe:
+
+- Saldo atual
+- Ações de recompensa e compra
+- Extrato paginado por cursor
+- Ação de estorno diretamente no extrato
+
+---
+
+## 9. Observabilidade
+
+O sistema registra eventos estruturados em console contendo:
+
+- Timestamp
+- requestId
+- userId
+- referenceId
+- tipo de operação
+
+Esse registro permite rastrear operações financeiras sem alterar o Ledger.
+
+---
+
+## 10. Execução
+
+Instalação:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+    npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Configuração:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Definir DATABASE_URL no arquivo .env
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Aplicar migrations:
 
-## Learn More
+```bash
+    npx prisma migrate dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Executar aplicação:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+    npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Executar testes:
 
-## Deploy on Vercel
+```bash
+    npm run test
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 11. Escopo do Projeto
+
+Este projeto implementa exclusivamente um módulo de moeda interna.
+
+Ele não inclui:
+
+- Integração com pagamentos reais
+- Conversão para dinheiro
+- Saques
+- Blockchain
+- Gateways externos
+
+O módulo é autocontido e opera apenas dentro do domínio da aplicação.
