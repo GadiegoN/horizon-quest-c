@@ -1,0 +1,28 @@
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { getSupabasePublicKey } from "./keys";
+
+export async function createServerSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+
+  const cookieStore = await cookies();
+
+  return createServerClient(url, getSupabasePublicKey(), {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Em alguns cenários (ex: Server Components), set pode não estar disponível.
+          // O refresh “de verdade” fica no proxy.ts (próximo arquivo).
+        }
+      },
+    },
+  });
+}
