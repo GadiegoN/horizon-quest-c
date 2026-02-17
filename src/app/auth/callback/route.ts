@@ -1,6 +1,9 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/auth/paths";
+import { ensureWalletForUser } from "@/lib/bank/ensure-wallet";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -20,6 +23,11 @@ export async function GET(request: Request) {
     const redirect = new URL("/login", url.origin);
     redirect.searchParams.set("error", "callback_failed");
     return NextResponse.redirect(redirect);
+  }
+
+  const { data } = await supabase.auth.getUser();
+  if (data.user?.id) {
+    await ensureWalletForUser(data.user.id);
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

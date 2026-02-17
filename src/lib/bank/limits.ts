@@ -1,0 +1,5 @@
+export const BANK_LIMITS = {
+  MAX_OPERATION_CENTS: 1_000_000, // HQ$ 10.000,00
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+} as const;

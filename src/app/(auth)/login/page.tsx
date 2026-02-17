@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AuthCard } from "../_components/auth-card";
+import { AuthCard } from "@/app/(auth)/_components/auth-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,14 +36,26 @@ export default function LoginPage() {
   }, [error, toast]);
 
   React.useEffect(() => {
-    if (state?.ok) {
-      router.replace(state.next ?? "/wallet");
+    if (!state?.ok) return;
+
+    if (state.needsMfa) {
+      router.replace(
+        `/mfa?next=${encodeURIComponent(state.next ?? "/wallet")}`,
+      );
       toast({
-        title: "Logado",
-        message: "Sessão iniciada com sucesso.",
-        tone: "success",
+        title: "Verificação necessária",
+        message: "Digite o código do seu autenticador para continuar.",
+        tone: "warning",
       });
+      return;
     }
+
+    router.replace(state.next ?? "/wallet");
+    toast({
+      title: "Logado",
+      message: "Sessão iniciada com sucesso.",
+      tone: "success",
+    });
   }, [state, router, toast]);
 
   return (

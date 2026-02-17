@@ -5,3 +5,86 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum LedgerType {
+  REWARD
+  PURCHASE
+  TRANSFER
+  FEE
+  REVERSAL
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+model Wallet {
+  id           String       @id @default(uuid())
+  userId       String       @unique @map("user_id")
+  balanceCents Int          @default(0) @map("balance_cents")
+  status       WalletStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledgerEntries LedgerEntry[]
+  transfersFrom Transfer[]    @relation("TransferFrom")
+  transfersTo   Transfer[]    @relation("TransferTo")
+
+  @@index([userId])
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id       String @id @default(uuid())
+  walletId String @map("wallet_id")
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  direction   LedgerDirection
+  type        LedgerType
+  amountCents Int             @map("amount_cents")
+
+  referenceId String  @unique @map("reference_id")
+  description String? @map("description")
+  metadata    Json?   @map("metadata")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([walletId, referenceId])
+  @@map("ledger_entries")
+}
+
+model Transfer {
+  id String @id @default(uuid())
+
+  fromWalletId String @map("from_wallet_id")
+  toWalletId   String @map("to_wallet_id")
+
+  fromWallet Wallet @relation("TransferFrom", fields: [fromWalletId], references: [id], onDelete: Restrict)
+  toWallet   Wallet @relation("TransferTo", fields: [toWalletId], references: [id], onDelete: Restrict)
+
+  amountCents Int            @map("amount_cents")
+  referenceId String         @unique @map("reference_id")
+  status      TransferStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([fromWalletId, createdAt(sort: Desc)])
+  @@index([toWalletId, createdAt(sort: Desc)])
+  @@map("transfers")
+}

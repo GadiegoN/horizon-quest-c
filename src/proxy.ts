@@ -10,8 +10,8 @@ const PUBLIC_PREFIXES = [
   "/reset-password",
   "/auth/callback",
   "/ui-playground",
+  "/mfa",
 ];
-
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some(
