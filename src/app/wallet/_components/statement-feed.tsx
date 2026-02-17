@@ -24,7 +24,11 @@ type Props = {
   initialNextCursorId: string | null;
 };
 
-export function StatementFeed({ initialEntries, initialNextCursorId }: Props) {
+export function StatementFeed({
+  initialEntries,
+  initialNextCursorId,
+  onReverse,
+}: Props & { onReverse: (id: string) => void }) {
   const [items, setItems] = React.useState<StatementEntry[]>(initialEntries);
   const [cursor, setCursor] = React.useState<string | null>(
     initialNextCursorId,
@@ -63,12 +67,12 @@ export function StatementFeed({ initialEntries, initialNextCursorId }: Props) {
     <div className="space-y-3">
       <div className="space-y-2 md:hidden">
         {items.map((e) => (
-          <EntryCard key={e.id} entry={e} />
+          <EntryCard key={e.id} entry={e} onReverse={onReverse} />
         ))}
       </div>
 
       <div className="hidden md:block">
-        <EntryTable entries={items} />
+        <EntryTable entries={items} onReverse={onReverse} />
       </div>
 
       {error ? <div className="text-sm text-danger">{error}</div> : null}

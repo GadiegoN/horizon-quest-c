@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatHqCents } from "@/lib/money";
 import type { StatementEntry } from "./statement-feed";
 
@@ -16,7 +17,18 @@ function toneFor(entry: StatementEntry) {
   return "neutral";
 }
 
-export function EntryCard({ entry }: { entry: StatementEntry }) {
+function canReverse(entry: StatementEntry) {
+  if (entry.type === "REVERSAL") return false;
+  return entry.type === "PURCHASE" || entry.type === "REWARD";
+}
+
+export function EntryCard({
+  entry,
+  onReverse,
+}: {
+  entry: StatementEntry;
+  onReverse: (id: string) => void;
+}) {
   const sign = entry.direction === "DEBIT" ? "-" : "";
   const tone = toneFor(entry);
 
@@ -36,14 +48,22 @@ export function EntryCard({ entry }: { entry: StatementEntry }) {
           <div className="text-sm font-semibold">
             {sign} {formatHqCents(entry.amountCents)}
           </div>
-          <div className="mt-1 flex justify-end">
+          <div className="mt-1 flex justify-end gap-2">
             <Badge tone={tone}>{entry.type}</Badge>
           </div>
         </div>
       </div>
 
-      <div className="mt-2 truncate text-xs text-muted-foreground">
-        ref: {entry.referenceId}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="truncate text-xs text-muted-foreground">
+          ref: {entry.referenceId}
+        </div>
+
+        {canReverse(entry) ? (
+          <Button variant="ghost" onClick={() => onReverse(entry.id)}>
+            Estornar
+          </Button>
+        ) : null}
       </div>
     </div>
   );

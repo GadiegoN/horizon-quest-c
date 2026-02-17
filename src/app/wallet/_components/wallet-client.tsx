@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatHqCents } from "@/lib/money";
 import { RewardSheet } from "./reward-sheet";
 import { PurchaseSheet } from "./purchase-sheet";
+import { ReversalSheet } from "./reversal-sheet";
 import { StatementFeed, type StatementEntry } from "./statement-feed";
 
 type Props = {
@@ -34,6 +35,16 @@ export function WalletClient({
   const [purchaseOpen, setPurchaseOpen] = React.useState(false);
 
   const [balanceCents, setBalanceCents] = React.useState(initialBalanceCents);
+
+  const [reversalOpen, setReversalOpen] = React.useState(false);
+  const [reversalTargetId, setReversalTargetId] = React.useState<string | null>(
+    null,
+  );
+
+  function openReversal(entryId: string) {
+    setReversalTargetId(entryId);
+    setReversalOpen(true);
+  }
 
   function onAfterOperation(newBalanceCents?: number) {
     if (typeof newBalanceCents === "number") setBalanceCents(newBalanceCents);
@@ -113,6 +124,7 @@ export function WalletClient({
           <StatementFeed
             initialEntries={initialEntries}
             initialNextCursorId={initialNextCursorId}
+            onReverse={(entryId) => openReversal(entryId)}
           />
         </CardContent>
       </Card>
@@ -126,6 +138,16 @@ export function WalletClient({
       <PurchaseSheet
         open={purchaseOpen}
         onOpenChange={setPurchaseOpen}
+        onSuccess={(newBalanceCents) => onAfterOperation(newBalanceCents)}
+      />
+
+      <ReversalSheet
+        open={reversalOpen}
+        onOpenChange={(v) => {
+          setReversalOpen(v);
+          if (!v) setReversalTargetId(null);
+        }}
+        originalEntryId={reversalTargetId}
         onSuccess={(newBalanceCents) => onAfterOperation(newBalanceCents)}
       />
     </main>

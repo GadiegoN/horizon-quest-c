@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TBody, TD, THead, TH, TR } from "@/components/ui/table";
 import { formatHqCents } from "@/lib/money";
 import type { StatementEntry } from "./statement-feed";
@@ -11,7 +12,18 @@ function fmtDate(iso: string) {
   }).format(d);
 }
 
-export function EntryTable({ entries }: { entries: StatementEntry[] }) {
+function canReverse(entry: StatementEntry) {
+  if (entry.type === "REVERSAL") return false;
+  return entry.type === "PURCHASE" || entry.type === "REWARD";
+}
+
+export function EntryTable({
+  entries,
+  onReverse,
+}: {
+  entries: StatementEntry[];
+  onReverse: (id: string) => void;
+}) {
   return (
     <Table>
       <THead>
@@ -20,6 +32,7 @@ export function EntryTable({ entries }: { entries: StatementEntry[] }) {
           <TH>Tipo</TH>
           <TH>Descrição</TH>
           <TH className="text-right">Valor</TH>
+          <TH className="text-right">Ações</TH>
         </TR>
       </THead>
       <TBody>
@@ -41,6 +54,15 @@ export function EntryTable({ entries }: { entries: StatementEntry[] }) {
               </TD>
               <TD className="text-right font-semibold">
                 {sign} {formatHqCents(e.amountCents)}
+              </TD>
+              <TD className="text-right">
+                {canReverse(e) ? (
+                  <Button variant="ghost" onClick={() => onReverse(e.id)}>
+                    Estornar
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
               </TD>
             </TR>
           );
