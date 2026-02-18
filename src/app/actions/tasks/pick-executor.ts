@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import type { TaskDTO } from "./types";
+import { taskToDTO } from "./types";
 import { assertExecutorNotCreator } from "@/lib/tasks";
 
 type PickExecutorInput = {
@@ -10,27 +10,6 @@ type PickExecutorInput = {
   creatorId: string;
   executorId: string;
 };
-
-function toTaskDTO(t: any): TaskDTO {
-  return {
-    id: t.id,
-    creatorId: t.creatorId,
-    executorId: t.executorId,
-    status: t.status,
-    difficulty: t.difficulty,
-    valueCents: t.valueCents,
-    repRewardPoints: t.repRewardPoints,
-    minLevelRequired: t.minLevelRequired,
-    applyWindowEndsAt: t.applyWindowEndsAt
-      ? t.applyWindowEndsAt.toISOString()
-      : null,
-    assignedAt: t.assignedAt ? t.assignedAt.toISOString() : null,
-    doneAt: t.doneAt ? t.doneAt.toISOString() : null,
-    cancelledAt: t.cancelledAt ? t.cancelledAt.toISOString() : null,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
-  };
-}
 
 export async function pickExecutor(input: PickExecutorInput): Promise<TaskDTO> {
   const taskId = input.taskId.trim();
@@ -64,5 +43,5 @@ export async function pickExecutor(input: PickExecutorInput): Promise<TaskDTO> {
     data: { executorId, status: "ASSIGNED", assignedAt: new Date() },
   });
 
-  return toTaskDTO(updated);
+  return taskToDTO(updated);
 }

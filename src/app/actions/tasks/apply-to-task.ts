@@ -5,32 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { calcLevel } from "@/lib/reputation";
 import { getDifficultyConfig } from "@/lib/tasks";
 import type { TaskApplicationDTO, TaskDTO } from "./types";
+import { taskToDTO } from "./types";
 
 type ApplyToTaskInput = {
   taskId: string;
   userId: string;
 };
-
-function toTaskDTO(t: any): TaskDTO {
-  return {
-    id: t.id,
-    creatorId: t.creatorId,
-    executorId: t.executorId,
-    status: t.status,
-    difficulty: t.difficulty,
-    valueCents: t.valueCents,
-    repRewardPoints: t.repRewardPoints,
-    minLevelRequired: t.minLevelRequired,
-    applyWindowEndsAt: t.applyWindowEndsAt
-      ? t.applyWindowEndsAt.toISOString()
-      : null,
-    assignedAt: t.assignedAt ? t.assignedAt.toISOString() : null,
-    doneAt: t.doneAt ? t.doneAt.toISOString() : null,
-    cancelledAt: t.cancelledAt ? t.cancelledAt.toISOString() : null,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
-  };
-}
 
 function toAppDTO(a: any): TaskApplicationDTO {
   return {
@@ -56,6 +36,10 @@ export async function applyToTask(input: ApplyToTaskInput): Promise<{
     where: { id: taskId },
     select: {
       id: true,
+      title: true,
+      description: true,
+      acceptanceCriteria: true,
+
       creatorId: true,
       executorId: true,
       status: true,
@@ -112,7 +96,7 @@ export async function applyToTask(input: ApplyToTaskInput): Promise<{
   }
 
   let assignedNow = false;
-  let taskAfter = task;
+  let taskAfter: any = task;
 
   if (cfg.isAutoAssignFirstCome) {
     const updated = await prisma.task.updateMany({
@@ -122,22 +106,18 @@ export async function applyToTask(input: ApplyToTaskInput): Promise<{
 
     if (updated.count === 1) {
       assignedNow = true;
-      taskAfter = (await prisma.task.findUnique({
-        where: { id: taskId },
-      })) as any;
+      taskAfter = await prisma.task.findUnique({ where: { id: taskId } });
     }
   }
 
   if (!assignedNow) {
-    taskAfter = (await prisma.task.findUnique({
-      where: { id: taskId },
-    })) as any;
+    taskAfter = await prisma.task.findUnique({ where: { id: taskId } });
   }
 
   return {
     idempotent,
     application: toAppDTO(application),
-    taskAfter: toTaskDTO(taskAfter),
+    taskAfter: taskToDTO(taskAfter),
     assignedNow,
   };
 }

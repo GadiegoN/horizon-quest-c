@@ -150,6 +150,10 @@ model ReputationEntry {
 model Task {
   id String @id @default(uuid())
 
+  title              String
+  description        String
+  acceptanceCriteria String? @map("acceptance_criteria")
+
   creatorId String  @map("creator_id")
   creator   Profile @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
 

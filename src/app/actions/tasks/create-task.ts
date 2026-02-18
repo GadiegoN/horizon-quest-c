@@ -3,92 +3,89 @@
 
 import { prisma } from "@/lib/prisma";
 import { getDifficultyConfig, computeApplyWindowEndsAt } from "@/lib/tasks";
-import type { TaskDTO, TaskDifficulty } from "./types";
+import type { TaskDifficulty } from "./types";
+import { taskToDTO } from "./types";
 import { bankDebitForTaskCreate } from "./bank-adapter";
 import { bankCreateRef } from "./refs";
+import { z } from "zod";
 
 type CreateTaskInput = {
   taskId: string;
   creatorId: string;
   difficulty: TaskDifficulty;
   valueCents: number;
+
+  title: string;
+  description: string;
+  acceptanceCriteria?: string | null;
 };
 
-function toTaskDTO(t: any): TaskDTO {
-  return {
-    id: t.id,
-    creatorId: t.creatorId,
-    executorId: t.executorId,
-    status: t.status,
-    difficulty: t.difficulty,
-    valueCents: t.valueCents,
-    repRewardPoints: t.repRewardPoints,
-    minLevelRequired: t.minLevelRequired,
-    applyWindowEndsAt: t.applyWindowEndsAt
-      ? t.applyWindowEndsAt.toISOString()
-      : null,
-    assignedAt: t.assignedAt ? t.assignedAt.toISOString() : null,
-    doneAt: t.doneAt ? t.doneAt.toISOString() : null,
-    cancelledAt: t.cancelledAt ? t.cancelledAt.toISOString() : null,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
-  };
-}
+const CreateTaskSchema = z.object({
+  taskId: z.string().trim().min(1, "taskId is required"),
+  creatorId: z.string().trim().min(1, "creatorId is required"),
+  difficulty: z.enum(["EASY", "MEDIUM", "HARD", "ELITE"]),
+  valueCents: z
+    .number()
+    .finite()
+    .transform((v) => Math.trunc(v))
+    .refine((v) => v > 0, "valueCents must be > 0"),
+
+  title: z.string().trim().min(3).max(80),
+  description: z.string().trim().min(10).max(2000),
+  acceptanceCriteria: z.string().trim().max(4000).nullable().optional(),
+});
 
 export async function createTask(
   input: CreateTaskInput,
-): Promise<{ idempotent: boolean; task: TaskDTO }> {
-  const taskId = input.taskId.trim();
-  const creatorId = input.creatorId.trim();
+): Promise<{ idempotent: boolean; task: ReturnType<typeof taskToDTO> }> {
+  const parsed = CreateTaskSchema.parse(input);
 
-  if (!taskId) throw new Error("taskId is required");
-  if (!creatorId) throw new Error("creatorId is required");
-  if (!Number.isFinite(input.valueCents))
-    throw new Error("valueCents must be finite");
-
-  const valueCents = Math.trunc(input.valueCents);
-  if (valueCents <= 0) throw new Error("valueCents must be > 0");
-
-  // idempotência: se task já existe, retorna
-  const existing = await prisma.task.findUnique({ where: { id: taskId } });
+  const existing = await prisma.task.findUnique({
+    where: { id: parsed.taskId },
+  });
   if (existing) {
-    return { idempotent: true, task: toTaskDTO(existing) };
+    return { idempotent: true, task: taskToDTO(existing) };
   }
 
-  const cfg = getDifficultyConfig(input.difficulty);
-  const applyWindowEndsAt = computeApplyWindowEndsAt(input.difficulty);
+  const cfg = getDifficultyConfig(parsed.difficulty);
+  const applyWindowEndsAt = computeApplyWindowEndsAt(parsed.difficulty);
 
-  // garante que Profile do criador existe
   await prisma.profile.upsert({
-    where: { userId: creatorId },
-    create: { userId: creatorId, reputationPoints: 0 },
+    where: { userId: parsed.creatorId },
+    create: { userId: parsed.creatorId, reputationPoints: 0 },
     update: {},
     select: { userId: true },
   });
 
-  // 1) Debita HQ$ do criador (idempotente por referenceId)
-  const purchaseRef = bankCreateRef(taskId);
+  const purchaseRef = bankCreateRef(parsed.taskId);
   await bankDebitForTaskCreate({
-    userId: creatorId,
-    amountCents: valueCents,
+    userId: parsed.creatorId,
+    amountCents: parsed.valueCents,
     referenceId: purchaseRef,
     description: "Task created",
-    metadata: { kind: "TASK_CREATE", taskId, difficulty: input.difficulty },
-  });
-
-  // 2) Cria Task
-  const task = await prisma.task.create({
-    data: {
-      id: taskId,
-      creatorId,
-      status: "OPEN",
-      difficulty: input.difficulty as any,
-      valueCents,
-      repRewardPoints: cfg.repRewardPoints,
-      minLevelRequired: cfg.minLevelRequired,
-      applyWindowEndsAt,
+    metadata: {
+      kind: "TASK_CREATE",
+      taskId: parsed.taskId,
+      difficulty: parsed.difficulty,
     },
   });
 
-  return { idempotent: false, task: toTaskDTO(task) };
+  const task = await prisma.task.create({
+    data: {
+      id: parsed.taskId,
+      creatorId: parsed.creatorId,
+      status: "OPEN",
+      difficulty: parsed.difficulty as any,
+      valueCents: parsed.valueCents,
+      repRewardPoints: cfg.repRewardPoints,
+      minLevelRequired: cfg.minLevelRequired,
+      applyWindowEndsAt,
+
+      title: parsed.title,
+      description: parsed.description,
+      acceptanceCriteria: parsed.acceptanceCriteria ?? null,
+    },
+  });
+
+  return { idempotent: false, task: taskToDTO(task) };
 }

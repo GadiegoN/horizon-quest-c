@@ -7,12 +7,38 @@ import { useRouter } from "next/navigation";
 import { createTask } from "@/app/actions/tasks/create-task";
 import { requireTasksUserId } from "@/app/actions/tasks/require-user";
 
+import { z } from "zod";
+
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD" | "ELITE";
+
+const FormSchema = z.object({
+  title: z.string().trim().min(3).max(80),
+  description: z.string().trim().min(10).max(2000),
+  acceptanceCriteria: z
+    .string()
+    .trim()
+    .max(4000)
+    .optional()
+    .transform((v) => {
+      const s = (v ?? "").trim();
+      return s.length === 0 ? null : s;
+    }),
+  difficulty: z.enum(["EASY", "MEDIUM", "HARD", "ELITE"]),
+  valueCents: z
+    .string()
+    .trim()
+    .refine((s) => s.length > 0, "Informe um valor")
+    .transform((s) => Number(s))
+    .refine((n) => Number.isFinite(n), "Valor inválido")
+    .transform((n) => Math.trunc(n))
+    .refine((n) => n > 0, "Valor deve ser > 0"),
+});
 
 export function NewTaskForm() {
   const router = useRouter();
@@ -28,17 +54,52 @@ export function NewTaskForm() {
   const [difficulty, setDifficulty] = useState<Difficulty>("EASY");
   const [valueCents, setValueCents] = useState<string>("");
 
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState<string>("");
+
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<
+      Record<
+        "title" | "description" | "acceptanceCriteria" | "valueCents",
+        string
+      >
+    >
+  >({});
+
   const [error, setError] = useState<string | null>(null);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const cents = Number(valueCents);
-    if (!Number.isFinite(cents) || Math.trunc(cents) !== cents || cents <= 0) {
-      setError("Informe um valor inteiro em cents (> 0).");
+    const parsed = FormSchema.safeParse({
+      title,
+      description,
+      acceptanceCriteria,
+      difficulty,
+      valueCents,
+    });
+
+    if (!parsed.success) {
+      const next: typeof fieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (
+          key === "title" ||
+          key === "description" ||
+          key === "acceptanceCriteria" ||
+          key === "valueCents"
+        ) {
+          next[key] = issue.message;
+        }
+      }
+      setFieldErrors(next);
+      setError("Revise os campos.");
       return;
     }
+
+    setFieldErrors({});
 
     startTransition(async () => {
       try {
@@ -46,8 +107,11 @@ export function NewTaskForm() {
         const result = await createTask({
           taskId,
           creatorId,
-          difficulty,
-          valueCents: cents,
+          difficulty: parsed.data.difficulty,
+          valueCents: parsed.data.valueCents,
+          title: parsed.data.title,
+          description: parsed.data.description,
+          acceptanceCriteria: parsed.data.acceptanceCriteria,
         });
 
         toast({
@@ -69,6 +133,33 @@ export function NewTaskForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
+      <Input
+        label="Título"
+        placeholder="Ex: Revisar contrato"
+        value={title}
+        onChange={(e: any) => setTitle(String(e?.target?.value ?? ""))}
+        error={fieldErrors.title}
+      />
+
+      <Textarea
+        label="Descrição"
+        placeholder="Explique o que precisa ser feito, com contexto suficiente para executar."
+        value={description}
+        onChange={(e: any) => setDescription(String(e?.target?.value ?? ""))}
+        error={fieldErrors.description}
+      />
+
+      <Textarea
+        label="Critérios de aceite"
+        placeholder="Opcional, mas recomendado. Ex: entregue o arquivo X, com Y validado e Z documentado."
+        value={acceptanceCriteria}
+        onChange={(e: any) =>
+          setAcceptanceCriteria(String(e?.target?.value ?? ""))
+        }
+        error={fieldErrors.acceptanceCriteria}
+        hint="Opcional. Use para deixar claro quando a task está pronta."
+      />
+
       <Select
         label="Dificuldade"
         defaultValue={difficulty}
@@ -88,7 +179,7 @@ export function NewTaskForm() {
         placeholder="Ex: 500"
         value={valueCents}
         onChange={(e: any) => setValueCents(String(e?.target?.value ?? ""))}
-        error={error ?? undefined}
+        error={fieldErrors.valueCents ?? error ?? undefined}
         hint="Valor inteiro em cents."
       />
 

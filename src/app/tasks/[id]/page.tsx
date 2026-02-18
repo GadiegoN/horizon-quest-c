@@ -50,17 +50,39 @@ export default async function TaskDetailPage(props: {
     <main className="mx-auto w-full max-w-3xl p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">
-            Tarefa #{task.id.slice(0, 8)}
-          </h1>
+          <h1 className="text-xl font-semibold">{task.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Detalhes e candidatos.
+            #{task.id.slice(0, 8)} • Detalhes e candidatos.
           </p>
         </div>
         <Link href="/tasks">
           <Button variant="secondary">Voltar</Button>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Conteúdo</CardTitle>
+          <CardDescription>O que precisa ser feito</CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          <div className="text-sm whitespace-pre-wrap wrap-break-words">
+            {task.description}
+          </div>
+
+          {task.acceptanceCriteria ? (
+            <div className="rounded-(--radius) border border-border bg-card p-3">
+              <div className="text-xs font-semibold text-muted-foreground">
+                Critérios de aceite
+              </div>
+              <div className="mt-1 text-sm whitespace-pre-wrap wrap-break-words">
+                {task.acceptanceCriteria}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
