@@ -24,7 +24,7 @@ export default function UiPlaygroundPage() {
   const [tab, setTab] = React.useState("components");
 
   return (
-    <main className="mx-auto w-full max-w-md p-4">
+    <main className="mx-auto w-full max-w-3xl p-4">
       <div className="mb-4">
         <h1 className="text-xl font-semibold">UI Playground</h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -32,6 +32,27 @@ enum TransferStatus {
   REVERSED
 }
 
+enum ReputationEntryType {
+  EARN
+  REVOKE
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum TaskStatus {
+  OPEN
+  ASSIGNED
+  DONE
+  CANCELLED
+}
+
+enum TaskDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  ELITE
+}
+
 model Wallet {
   id           String       @id @default(uuid())
   userId       String       @unique @map("user_id")
@@ -87,4 +108,93 @@ model Transfer {
   @@index([fromWalletId, createdAt(sort: Desc)])
   @@index([toWalletId, createdAt(sort: Desc)])
   @@map("transfers")
+}
+
+model Profile {
+  id               String @id @default(uuid())
+  userId           String @unique @map("user_id")
+  reputationPoints Int    @default(0) @map("reputation_points")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reputationEntries ReputationEntry[]
+  createdTasks      Task[]            @relation("TaskCreator")
+  assignedTasks     Task[]            @relation("TaskExecutor")
+  taskApplications  TaskApplication[]
+
+  @@index([userId])
+  @@index([reputationPoints(sort: Desc)])
+  @@map("profiles")
+}
+
+model ReputationEntry {
+  id String @id @default(uuid())
+
+  userId String  @map("user_id")
+  user   Profile @relation(fields: [userId], references: [userId], onDelete: Restrict)
+
+  deltaPoints Int                 @map("delta_points")
+  type        ReputationEntryType
+  referenceId String              @unique @map("reference_id")
+  description String?             @map("description")
+  metadata    Json?               @map("metadata")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, referenceId])
+  @@map("reputation_entries")
+}
+
+model Task {
+  id String @id @default(uuid())
+
+  creatorId String  @map("creator_id")
+  creator   Profile @relation("TaskCreator", fields: [creatorId], references: [userId], onDelete: Restrict)
+
+  executorId String?  @map("executor_id")
+  executor   Profile? @relation("TaskExecutor", fields: [executorId], references: [userId], onDelete: Restrict)
+
+  status     TaskStatus     @default(OPEN)
+  difficulty TaskDifficulty
+
+  valueCents       Int @map("value_cents")
+  repRewardPoints  Int @map("rep_reward_points")
+  minLevelRequired Int @map("min_level_required")
+
+  applyWindowEndsAt DateTime? @map("apply_window_ends_at")
+
+  assignedAt  DateTime? @map("assigned_at")
+  doneAt      DateTime? @map("done_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  applications TaskApplication[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([difficulty, status, createdAt(sort: Desc)])
+  @@index([creatorId, createdAt(sort: Desc)])
+  @@index([executorId, createdAt(sort: Desc)])
+  @@index([applyWindowEndsAt])
+  @@map("tasks")
+}
+
+model TaskApplication {
+  id String @id @default(uuid())
+
+  taskId String @map("task_id")
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId String  @map("user_id")
+  user   Profile @relation(fields: [userId], references: [userId], onDelete: Restrict)
+
+  appliedAt DateTime @default(now()) @map("applied_at")
+
+  @@unique([taskId, userId])
+  @@index([taskId, appliedAt(sort: Asc)])
+  @@index([userId, appliedAt(sort: Desc)])
+  @@map("task_applications")
 }
