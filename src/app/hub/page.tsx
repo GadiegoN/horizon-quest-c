@@ -1,5 +1,3 @@
-// src/app/hub/page.tsx
-
 import Link from "next/link";
 import {
   Card,
